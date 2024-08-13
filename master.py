@@ -1,85 +1,78 @@
 import pyautogui
 import time
+import json
 import threading
 from pynput import keyboard
 
-# Начальные параметры
-current_level = 3
-current_coins = 77000
-coins_per_click = 3  # 3 монеты за клик на 3 уровне
-next_level_coins = 250000  # Количество монет для перехода на 4 уровень
-final_target = 10000000  # Цель: 10 000 000 монет
-num_clicks = 5000  # Максимальное количество кликов за раз
-interval_between_clicks = 1 / 8  # Интервал между кликами для 8 кликов в секунду
+class Clicker:
+    def __init__(self, config_path="config.json"):
+        with open(config_path, "r") as config_file:
+            config = json.load(config_file)
+        
+        self.current_level = config["current_level"]
+        self.current_coins = config["current_coins"]
+        self.coins_per_click = config["coins_per_click"]
+        self.next_level_coins = config["next_level_coins"]
+        self.final_target = config["final_target"]
+        self.num_clicks = config["num_clicks"]
+        self.interval_between_clicks = 1 / config["clicks_per_second"]
+        self.stop_script = False
 
-# Флаг для остановки скрипта
-stop_script = False
 
-def stop_clicking():
-    global stop_script
-    stop_script = True
+    def stop_clicking(self):
+        self.stop_script = True
 
-def on_press(key):
-    print(key)
-    if key == keyboard.Key.space:
-        stop_clicking()
-        return False
+    def on_press(self, key):
+        print(key)
+        if key == keyboard.Key.space:
+            self.stop_clicking()
+            return False
 
-def calculate_time_to_next_level():
-    global current_coins, coins_per_click, next_level_coins
+    def calculate_time_to_next_level(self):
+        clicks_needed = (self.next_level_coins - self.current_coins) // self.coins_per_click
+        time_needed = clicks_needed / 8
+        return time_needed
 
-    clicks_needed = (next_level_coins - current_coins) // coins_per_click
-    time_needed = clicks_needed / 8  # время в секундах при 8 кликах в секунду
-    return time_needed
+    def calculate_time_to_final_target(self):
+        clicks_needed = (self.final_target - self.current_coins) // self.coins_per_click
+        time_needed = clicks_needed / 8
+        return time_needed
 
-def calculate_time_to_final_target():
-    global current_coins, coins_per_click, final_target
+    def start_clicker(self):  
+        listener = keyboard.Listener(on_press=self.on_press)
+        listener.start()
 
-    clicks_needed = (final_target - current_coins) // coins_per_click
-    time_needed = clicks_needed / 8  # время в секундах при 8 кликах в секунду
-    return time_needed
+        print("Waiting 10 seconds before starting...")
+        time.sleep(10)
 
-def start_clicker():  
-    global stop_script, current_coins
+        while not self.stop_script:
+            start_time = time.time()
 
-    # Запуск слушателя для остановки скрипта по нажатию пробела
-    listener = keyboard.Listener(on_press=on_press)
-    listener.start()
+            for i in range(self.num_clicks):
+                if self.stop_script:
+                    print("Script stopped by the user.")
+                    break
+                pyautogui.click()
+                self.current_coins += self.coins_per_click
+                time.sleep(self.interval_between_clicks)
 
-    # Отложенный запуск скрипта через 2 минуты
-    time.sleep(10)
+            end_time = time.time()
+            elapsed_time = end_time - start_time
 
-    # Засечение времени старта
-    start_time = time.time()
+            elapsed_time_int = int(elapsed_time)
+            clicks_per_second = int(self.num_clicks / elapsed_time_int)
 
-    for i in range(num_clicks):
-        if stop_script:
-            print("Скрипт остановлен пользователем.")
-            break
-        pyautogui.click()
-        current_coins += coins_per_click
-        time.sleep(interval_between_clicks)
+            print(f"Execution time: {elapsed_time_int} seconds")
+            print(f"Approximate clicks per second: {clicks_per_second}")
+            print(f"Current coins: {self.current_coins}")
 
-    # Подсчет и вывод времени работы скрипта
-    end_time = time.time()
-    elapsed_time = end_time - start_time
+            if not self.stop_script:
+                print("Waiting 1.5 hours before the next cycle.")
+                time.sleep(5400)
 
-    elapsed_time_int = int(elapsed_time)
-    clicks_per_second = int(num_clicks / elapsed_time_int)
+        listener.stop()
 
-    print(f"Время выполнения: {elapsed_time_int} секунд")
-    print(f"Приблизительное количество кликов в секунду: {clicks_per_second}")
-    print(f"Текущие монеты: {current_coins}")
+clicker = Clicker()
 
-    listener.stop()
-
-# Вычисление времени до следующего уровня и до 10 000 000 монет
-time_to_next_level = calculate_time_to_next_level()
-time_to_final_target = calculate_time_to_final_target()
-
-print(f"Время до следующего уровня: {time_to_next_level / 3600:.2f} часов")
-print(f"Время до 10 000 000 монет: {time_to_final_target / 3600:.2f} часов")
-
-# Запуск кликерного скрипта в отдельном потоке
-clicker_thread = threading.Thread(target=start_clicker)
+clicker_thread = threading.Thread(target=clicker.start_clicker)
 clicker_thread.start()

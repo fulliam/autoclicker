@@ -1,0 +1,9 @@
+{
+  "current_level": 3,
+  "current_coins": 77000,
+  "coins_per_click": 3,
+  "next_level_coins": 250000,
+  "final_target": 10000000,
+  "num_clicks": 5000,
+  "clicks_per_second": 8
+}
